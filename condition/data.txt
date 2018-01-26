@@ -1,0 +1,169 @@
+CREATE TABLE Items
+(   item_id     INTEGER  NOT NULL, 
+       year     INTEGER  NOT NULL, 
+  item_name     CHAR(32) NOT NULL, 
+  price_tax_ex  INTEGER  NOT NULL, 
+  price_tax_in  INTEGER  NOT NULL, 
+  PRIMARY KEY (item_id, year));
+
+INSERT INTO Items VALUES(100,	2000,	'カップ'	,500,	525);
+INSERT INTO Items VALUES(100,	2001,	'カップ'	,520,	546);
+INSERT INTO Items VALUES(100,	2002,	'カップ'	,600,	630);
+INSERT INTO Items VALUES(100,	2003,	'カップ'	,600,	630);
+INSERT INTO Items VALUES(101,	2000,	'スプーン'	,500,	525);
+INSERT INTO Items VALUES(101,	2001,	'スプーン'	,500,	525);
+INSERT INTO Items VALUES(101,	2002,	'スプーン'	,500,	525);
+INSERT INTO Items VALUES(101,	2003,	'スプーン'	,500,	525);
+INSERT INTO Items VALUES(102,	2000,	'ナイフ'	,600,	630);
+INSERT INTO Items VALUES(102,	2001,	'ナイフ'	,550,	577);
+INSERT INTO Items VALUES(102,	2002,	'ナイフ'	,550,	577);
+INSERT INTO Items VALUES(102,	2003,	'ナイフ'	,400,	420);
+commit;
+
+SELECT item_name,
+       year,
+       price_tax_ex AS price
+       FROM Items
+       WHERE year <= 2001
+       UNION ALL
+SELECT item_name,
+       year,
+       price_tax_in AS price
+       FROM Items
+       WHERE year >= 2002;
+
+-- 実行計画
+----------------------------------------------------------------------------
+| Id  | Operation	   | Name  | Rows  | Bytes | Cost (%CPU)| Time	   |
+----------------------------------------------------------------------------
+|   0 | SELECT STATEMENT   |	   |	12 |   720 |	 4  (50)| 00:00:01 |
+|   1 |  UNION-ALL	   |	   |	   |	   |		|	   |
+|*  2 |   TABLE ACCESS FULL| ITEMS |	 6 |   360 |	 2   (0)| 00:00:01 |
+|*  3 |   TABLE ACCESS FULL| ITEMS |	 6 |   360 |	 2   (0)| 00:00:01 |
+----------------------------------------------------------------------------
+
+UNION ALLの操作は、Itemsテーブルに対して2度のアクセスを実行している。
+その際、テーブルへのフルスキャンが実施されている。
+
+SELECT item_name, year, CASE WHEN year <= 2001 THEN price_tax_ex
+                             WHEN year >= 2002 THEN price_tax_in END AS price
+  FROM Items;
+
+-- 実行計画
+---------------------------------------------------------------------------
+| Id  | Operation	  | Name  | Rows  | Bytes | Cost (%CPU)| Time	  |
+---------------------------------------------------------------------------
+|   0 | SELECT STATEMENT  |	  |    12 |   876 |	2   (0)| 00:00:01 |
+|   1 |  TABLE ACCESS FULL| ITEMS |    12 |   876 |	2   (0)| 00:00:01 |
+---------------------------------------------------------------------------
+
+Itemsテーブルへのアクセスが1回になっている。
+
+CREATE TABLE Population
+(prefecture VARCHAR(32),
+ sex        CHAR(1),
+ pop        INTEGER,
+     CONSTRAINT pk_pop PRIMARY KEY(prefecture, sex));
+
+INSERT INTO Population VALUES('徳島', '1', 60);
+INSERT INTO Population VALUES('徳島', '2', 40);
+INSERT INTO Population VALUES('香川', '1', 90);
+INSERT INTO Population VALUES('香川', '2',100);
+INSERT INTO Population VALUES('愛媛', '1',100);
+INSERT INTO Population VALUES('愛媛', '2', 50);
+INSERT INTO Population VALUES('高知', '1',100);
+INSERT INTO Population VALUES('高知', '2',100);
+INSERT INTO Population VALUES('福岡', '1', 20);
+INSERT INTO Population VALUES('福岡', '2',200);
+commit;
+
+SELECT prefecture, 
+       SUM(CASE WHEN sex = '1' THEN pop ELSE 0 END) AS pop_men,
+       SUM(CASE WHEN sex = '2' THEN pop ELSE 0 END) AS pop_wom
+FROM population GROUP BY prefecture;
+
+CREATE TABLE Employees
+(emp_id    CHAR(3)  NOT NULL,
+ team_id   INTEGER  NOT NULL,
+ emp_name  CHAR(16) NOT NULL,
+ team      CHAR(16) NOT NULL,
+    PRIMARY KEY(emp_id, team_id));
+
+INSERT INTO Employees VALUES('201',	1,	'Joe',	'商品企画');
+INSERT INTO Employees VALUES('201',	2,	'Joe',	'開発');
+INSERT INTO Employees VALUES('201',	3,	'Joe',	'営業');
+INSERT INTO Employees VALUES('202',	2,	'Jim',	'開発');
+INSERT INTO Employees VALUES('203',	3,	'Carl',	'営業');
+INSERT INTO Employees VALUES('204',	1,	'Bree',	'商品企画');
+INSERT INTO Employees VALUES('204',	2,	'Bree',	'開発');
+INSERT INTO Employees VALUES('204',	3,	'Bree',	'営業');
+INSERT INTO Employees VALUES('204',	4,	'Bree',	'管理');
+INSERT INTO Employees VALUES('205',	1,	'Kim',	'商品企画');
+INSERT INTO Employees VALUES('205',	2,	'Kim',	'開発');
+commit;
+
+SELECT emp_name,
+       CASE WHEN COUNT(*) = 1 THEN MAX(team)
+            WHEN COUNT(*) = 2 THEN '2つ兼務'
+            WHEN COUNT(*) >=3 THEN '3つ以上兼務'
+        END AS team
+    FROM Employees
+    GROUP BY emp_name;
+
+CASE式を使うことでテーブルへのアクセスコストを減らせる。
+UNIONだと、複数回テーブルにアクセスしてマージする必要があり、どうしてもパフォーマンス的に落ちる。
+ただ、UNIONのほうが役に立つケースもある。たとえば、マージされるSELECT文で使用しているテーブルが異なる場合。
+
+SELECT col1_A
+  FROM TableA
+  WHERE col2_A = 'A'
+UNION ALL
+SELECT col1_B
+  FROM TableB
+  WHERE col2_B = 'B';
+
+CREATE TABLE ThreeElements
+(key    CHAR(8),
+ name   VARCHAR(32),
+ date_1 DATE,
+ flg_1  CHAR(1),
+ date_2 DATE,
+ flg_2  CHAR(1),
+ date_3 DATE,
+ flg_3  CHAR(1),
+    PRIMARY KEY(key));
+
+INSERT INTO ThreeElements VALUES ('1', 'a', '2013-11-01', 'T', NULL, NULL, NULL, NULL);
+INSERT INTO ThreeElements VALUES ('2', 'b', NULL, NULL, '2013-11-01', 'T', NULL, NULL);
+INSERT INTO ThreeElements VALUES ('3', 'c', NULL, NULL, '2013-11-01', 'F', NULL, NULL);
+INSERT INTO ThreeElements VALUES ('4', 'd', NULL, NULL, '2013-12-30', 'T', NULL, NULL);
+INSERT INTO ThreeElements VALUES ('5', 'e', NULL, NULL, NULL, NULL, '2013-11-01', 'T');
+INSERT INTO ThreeElements VALUES ('6', 'f', NULL, NULL, NULL, NULL, '2013-12-01', 'F');
+
+CREATE INDEX IDX_1 ON ThreeElements (date_1, flg_1) ;
+CREATE INDEX IDX_2 ON ThreeElements (date_2, flg_2) ;
+CREATE INDEX IDX_3 ON ThreeElements (date_3, flg_3) ;
+
+SELECT key, name,
+       date_1, flg_1,
+       date_2, flg_2,
+       date_3, flg_3
+　FROM ThreeElements
+ WHERE date_1 = '2013-11-01'
+   AND flg_1 = 'T'
+UNION
+SELECT key, name,
+       date_1, flg_1,
+       date_2, flg_2,
+       date_3, flg_3
+　FROM ThreeElements
+ WHERE date_2 = '2013-11-01'
+   AND flg_2 = 'T'
+UNION
+SELECT key, name,
+       date_1, flg_1,
+       date_2, flg_2,
+       date_3, flg_3
+　FROM ThreeElements
+ WHERE date_3 = '2013-11-01'
+　 AND flg_3 = 'T';

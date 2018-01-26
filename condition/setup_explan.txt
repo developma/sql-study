@@ -1,0 +1,13 @@
+-- autotrace使うための準備
+-- > sqlplus sys/XXX AS dba
+-- SQL> @$ORACLE_HOME/sqlplus/admin/plustrce.sql
+-- SQL> GRANT plustrace TO scott;
+-- SQL> quit
+-- > sqlplus scott/XXX
+-- SQL> @$ORACLE_HOME/rdbms/admin/utlxplan.sql
+-- SQL> show autotrace;
+-- SQL> set autotrace on;
+-- おまけ
+-- SQL> set linesize 200; // sqlplusの横幅をひろげる
+-- > export NLS_LANG=Japanese_Japan.AL32UTF8 // 日本語が文字化けしてたら
+
